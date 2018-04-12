@@ -16,14 +16,6 @@ def GetNewPosition(Date):
     print(Date)
     pass
 
-def GetPortReturn(Port,ASDF=0,fetch=0):
-    PT=Port.holding.copy()
-    for i in PT.index:
-        id=PT.iloc[i,0]
-        ret=(ASDF[ASDF['STOCKID']==id].DAYRETURN).iat[0]
-        PT.loc[i,'DAYRET']=ret
-    PortDayRet=sum(PT.Weight*PT.DAYRET)
-    return PortDayRet
 
 def GetASDF(date):
     digitdate=date.year*10000+date.month*100+date.day
@@ -33,8 +25,10 @@ def GetASDF(date):
     #SQLstrHead2='select * from mfm_backtest_top_stocks where date='
     SQLstr1=SQLstrHead1+str(digitdate)
     #SQLstr2=SQLstrHead2+str(digitPD)
-    AS=sql.toDF(SQLstr1,dbname1)
-    return AS
+    AS=sql.toDF(SQLstr1,dbname1)    
+    ASni=AS.set_index('STOCKID')
+    ASni=ASni[['DAYRETURN']]
+    return ASni
 
 def FactorStandardize(DF):
     return DF
@@ -42,6 +36,7 @@ def FactorStandardize(DF):
 class Portfolio(object):
     def __init__(self,stocklist,tradedate=0,weight='EqualAmount'):
         self.TRADEDATE=tradedate
+        self.Stocklist=stocklist
         Port=pd.DataFrame(stocklist,columns=['STOCKID'])
         if weight=='EqualAmount':
             ew=1/len(Port)
@@ -50,15 +45,20 @@ class Portfolio(object):
         
     def GetReturn(self,ASDF=0,fetch=0):
         PT=self.holding.copy()
-        for i in PT.index:
-            id=PT.iloc[i,0]
-            retDF=(ASDF[ASDF['STOCKID']==id].DAYRETURN)
+        PT=PT.set_index('STOCKID')
+        PT2=pd.concat([PT,ASDF],join='inner',axis=1)
+        """
+        for id in PT.index:
+            ret=ASDF.at[id,'DAYRETURN']
+        
             if len(retDF)==0:
                 print(id)
                 raise Exception('Cannot Find Return for ID')
             ret=retDF.iat[0]
-            PT.loc[i,'DAYRET']=ret
-            PortDayRet=sum(PT.Weight*PT.DAYRET)
+       
+            PT.at[id,'DAYRET']=ret
+        """
+        PortDayRet=sum(PT2.Weight*PT2.DAYRETURN)
         return PortDayRet
 
         
@@ -202,17 +202,18 @@ TradeFreq='W'
 BT=SFBacktest(BegT,EndT,GN=GroupNum)
 
 A=BT.backtest()
-
-#SL1=[1,2,4,5]
-#SL2=[6,7,8,9,10]
-#P1=Portfolio(SL1)
-#P2=Portfolio(SL2)
-#G1=GroupedPort(2,[P1,P2])
+"""
+SL1=[1,2,4,5]
+SL2=[6,7,8,9,10]
+P1=Portfolio(SL1)
+P2=Portfolio(SL2)
+G1=GroupedPort(2,[P1,P2])
 #ASDF=BT.GetFactors(datetime(2017,1,5))
 #print(ASDF)
 #AA=BT.SortNGroup(ASDF,'BP')
-#ASDF=GetASDF(datetime(2017,1,5))
+ASDF=GetASDF(datetime(2017,1,6))
 #DayFactor=BT.GetFactors(datetime(2017,1,5))
-
+"""
 stoptime = datetime.now() 
 print(stoptime)
+print(stoptime-starttime)
