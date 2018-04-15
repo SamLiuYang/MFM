@@ -11,15 +11,42 @@ import MYSQLPD as sql
 import math
 
 
-
 def DatetoDigit(date):
     digitdate=date.year*10000+date.month*100+date.day
     return digitdate
 
+"""读取回测数据"""
+"""
+def LoadData():
+    f = open('D:\Sam\PYTHON\DayReturn2007-2017.csv',encoding='UTF-8')
+    reader = pd.read_csv(f, sep=',', iterator=True,parse_dates=[1])
+    loop = True
+    chunkSize = 100000
+    chunks = []
+    while loop:
+        try:
+            chunk = reader.get_chunk(chunkSize)
+            chunks.append(chunk)
+        except StopIteration:
+            loop = False
+    print("Iteration is stopped.")
+    DRDF = pd.concat(chunks, ignore_index=True)
+    DRDF.drop('OldIndex', axis=1, inplace=True)
+    DRDF['TRADEDATE']=DRDF['TRADEDATE'].apply(DatetoDigit)
+    DRDF=DRDF.set_index(['TRADEDATE','STOCKID'])
+    print('Done')
+    return DRDF
+
+global AllDR
+AllDR=LoadData()
+"""
+
 def GetASDF(date):
-    AS=DayReturnDF[DayReturnDF['TRADEDATE']==date]
-    ASni=AS.set_index('STOCKID')
-    ASni=ASni[['DAYRETURN']]
+    global AllDR
+    dd=DatetoDigit(date)
+    AS=AllDR.loc[dd]
+    #ASni=AS.set_index('STOCKID')
+    ASni=AS[['DAYRETURN']]
     return ASni
 
 def FactorStandardize(DF):
@@ -160,46 +187,22 @@ class SFBacktest(object):
             RetTable.loc[date]=RL
             print(date)
             if TDDF.iloc[N,1]==1:
-                 GP=self.SFtoGroup(date)
-                 
+                 GP=self.SFtoGroup(date)                 
             #if N==2:
                 #break
         #return ASDF
                         
         #print(RetTable)
         return RetTable
-
-
-
 starttime = datetime.now() 
 print(starttime)
 """读取本地日读数据作为回测"""
-
-f = open('D:\Sam\PYTHON\DayReturn2007-2017.csv',encoding='UTF-8')
-reader = pd.read_csv(f, sep=',', iterator=True,parse_dates=[1])
-loop = True
-chunkSize = 100000
-chunks = []
-while loop:
-    try:
-        chunk = reader.get_chunk(chunkSize)
-        chunks.append(chunk)
-    except StopIteration:
-        loop = False
-        #print("Iteration is stopped.")
-DRDF = pd.concat(chunks, ignore_index=True)
-DRDF.drop('OldIndex', axis=1, inplace=True)
-DRDF['TRADEDATE']=DRDF['TRADEDATE'].apply(DatetoDigit)
-#DRDF=DRDF.set_index(['TRADEDATE','STOCKID'])
-print('Done')
-
-
 
                
 #参数设置
 
 #设定回测起止日期
-BegT=datetime(2017,1,1)
+BegT=datetime(2007,1,1)
 EndT=datetime(2017,12,31)
 
 
@@ -213,9 +216,9 @@ GroupNum=10
 TradeFreq='W'
 
 #创建主程序
-#BT=SFBacktest(BegT,EndT,GN=GroupNum)
+BT=SFBacktest(BegT,EndT,GN=GroupNum)
 
-#A=BT.backtest()
+A=BT.backtest()
 """
 SL1=[1,2,4,5]
 SL2=[6,7,8,9,10]

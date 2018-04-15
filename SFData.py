@@ -11,6 +11,10 @@ import pandas as pd
 import MYSQLPD as sql
 import math
 
+def DatetoDigit(date):
+    digitdate=date.year*10000+date.month*100+date.day
+    return digitdate
+
 
 #读取交易日期列表
 def GetTradeDates(BegT,EndT,Freq='D'):
@@ -22,10 +26,13 @@ def GetTradeDates(BegT,EndT,Freq='D'):
         return TDList
     elif Freq=='D':
         TDList=BTTD[['TRADEDATE']].TRADEDATE.tolist()
+       
+        
+        
         return TDList
         
 def GetReturnData(date):    
-        digitdate=date.year*10000+date.month*100+date.day
+        digitdate=DatetoDigit(date)
         dbname1='tyb_stock'
         #SQLstrHead1='select * from stockdaily_basic where TRADEDATE='
         SQLstrHead1='select TRADEDATE,STOCKID,BFQCLOSE,DAYRETURN,TRADABLE from stockdaily_basic where TRADEDATE='
@@ -36,15 +43,20 @@ def GetReturnData(date):
         #DF=DF.loc[(DF['SWLV1']!=0)&(DF['TRADABLE']==1)]
         return DF
 
+def GetWeekReturn(d1,d2):
+    dd1=DatetoDigit(d1)
+    dd2=DatetoDigit(d2)
+    pass
+
 
 
 
 starttime = datetime.now() 
 #设定回测起止日期
-BegT=datetime(2007,1,1)
-EndT=datetime(2017,12,31)
+BegT=datetime(2006,12,29)
+EndT=datetime(2018,3,31)
 
-TDList=GetTradeDates(BegT,EndT,Freq='D')
+TDList=GetTradeDates(BegT,EndT,Freq='W')
 
 AllData=pd.DataFrame()
 for date in TDList:
