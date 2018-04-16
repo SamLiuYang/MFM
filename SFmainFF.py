@@ -16,9 +16,9 @@ def DatetoDigit(date):
     return digitdate
 
 """读取回测数据"""
-"""
-def LoadData():
-    f = open('D:\Sam\PYTHON\DayReturn2007-2017.csv',encoding='UTF-8')
+
+def LoadData(FileName):
+    f = open('D:\Sam\PYTHON\\'+FileName,encoding='UTF-8')
     reader = pd.read_csv(f, sep=',', iterator=True,parse_dates=[1])
     loop = True
     chunkSize = 100000
@@ -37,16 +37,14 @@ def LoadData():
     print('Done')
     return DRDF
 
-global AllDR
-AllDR=LoadData()
-"""
 
 def GetASDF(date):
     global AllDR
     dd=DatetoDigit(date)
     AS=AllDR.loc[dd]
     #ASni=AS.set_index('STOCKID')
-    ASni=AS[['DAYRETURN']]
+    #ASni=AS[['DAYRETURN']]
+    ASni=AS[['RETURN']]
     return ASni
 
 def FactorStandardize(DF):
@@ -66,18 +64,8 @@ class Portfolio(object):
         PT=self.holding.copy()
         PT=PT.set_index('STOCKID')
         PT2=pd.concat([PT,ASDF],join='inner',axis=1)
-        """
-        for id in PT.index:
-            ret=ASDF.at[id,'DAYRETURN']
-        
-            if len(retDF)==0:
-                print(id)
-                raise Exception('Cannot Find Return for ID')
-            ret=retDF.iat[0]
-       
-            PT.at[id,'DAYRET']=ret
-        """
-        PortDayRet=sum(PT2.Weight*PT2.DAYRETURN)
+
+        PortDayRet=sum(PT2.Weight*PT2.RETURN)
         return PortDayRet
 
         
@@ -94,6 +82,10 @@ class GroupedPort(object):
                 GPList.append(PFList[G-1])
             self.GroupPort=GPList
     
+    def PrintHoldings(self):
+        for port in self.GroupPort:
+            print(port.holding)
+    
     def GetReturns(self,ASDF=0,fetch=0):
         GRDF=pd.DataFrame(columns=['DAYRET'])
         for GI in range(0,self.GN):
@@ -106,12 +98,14 @@ class GroupedPort(object):
             
 #回测主程序        
 class SFBacktest(object):    
-    def __init__(self,BegT,EndT,SR='ALL',GN=10,TF='W'):
+    def __init__(self,BegT,EndT,SR='ALL',GN=10,TF='W',BTF='D',IndNeu=False):
         self.BegT=BegT
         self.EndT=EndT
         self.StockRange=SR
         self.GroupNum=GN
         self.TradeFreq=TF
+        self.BTFreq=BTF
+        self.IndNeutral=IndNeu
         #读取交易日期列表
         TDs=pd.read_csv(r"D:\Sam\PYTHON\Tradedates.csv",encoding='utf_8_sig',parse_dates=[0])
         BTTD=TDs[(TDs['TRADEDATE']>=BegT)&(TDs['TRADEDATE']<=EndT)]
@@ -135,20 +129,43 @@ class SFBacktest(object):
         return DF
     
     def SortNGroup(self,DFS,FactorName):
-        DFS=(DFS.sort_values(by=FactorName,ascending=False)).reset_index(drop=True)
-        length=len(DFS)
-        rank=pd.Series(range(0,length))
-        group=rank*(self.GroupNum)/length
-        DFS['GROUP']=group
-        DFS['GROUP']=DFS['GROUP'].apply(lambda x:int(x)+1)
-        GSL=[]
-        for i in range(1,self.GroupNum+1):
-           GSL.append([]) 
-           SGDF=DFS.loc[DFS['GROUP']==i]
-           SL=list(SGDF['STOCKID'])
-           GSL[i-1]=Portfolio(SL)
-        GP=GroupedPort(self.GroupNum,GSL)
-        return GP    
+        FDF=(DFS.sort_values(by=FactorName,ascending=False)).reset_index(drop=True)
+        self.FDF=FDF.copy()
+        length=len(FDF)
+        """不分行业排序"""
+        if self.IndNeutral==False:
+            rank=pd.Series(range(0,length))
+            group=rank*(self.GroupNum)/length
+            FDF['GROUP']=group
+            FDF['GROUP']=FDF['GROUP'].apply(lambda x:int(x)+1)
+            GSL=[]
+            for i in range(1,self.GroupNum+1):
+                GSL.append([]) 
+                SGDF=FDF.loc[FDF['GROUP']==i]
+                SL=list(SGDF['STOCKID'])
+                GSL[i-1]=Portfolio(SL)
+            GP=GroupedPort(self.GroupNum,GSL)
+            return FDF
+        """分行业内部排序，所有股票等权重"""
+        if self.IndNeutral==True:
+            FDF['RANK'] = FDF[FactorName].groupby(FDF['SWLV1']).rank(ascending=False)
+            FDF=FDF.sort_values(by=['SWLV1','RANK'])
+            FDF['COUNT']=FDF['RANK'].groupby(FDF['SWLV1']).max() 
+            """
+            #rank=pd.Series(range(0,length))
+            #group=rank*(self.GroupNum)/length
+            DF['GROUP']=group
+            DF['GROUP']=DF['GROUP'].apply(lambda x:int(x)+1)
+            GSL=[]
+            for i in range(1,self.GroupNum+1):
+                GSL.append([]) 
+                SGDF=DFS.loc[DF['GROUP']==i]
+                SL=list(SGDF['STOCKID'])
+                GSL[i-1]=Portfolio(SL)
+            GP=GroupedPort(self.GroupNum,GSL)
+            """
+            return FDF
+        
     
     def SFtoGroup(self,date):
         DF=self.GetFactors(date)
@@ -167,6 +184,7 @@ class SFBacktest(object):
         TDDF=TDDF.loc[i:length].reset_index(drop=True)
         return TDDF
     
+    """回测主方法backtest()"""
     def backtest(self):
        
         TDDF=self.GetBTDates()
@@ -178,47 +196,65 @@ class SFBacktest(object):
         #按顺序遍历每个交易日，计算分组收益，逢交易日则进行换仓操作
         RetTable=pd.DataFrame(columns=range(1,self.GroupNum+1)) 
         #print(RetTable.columns)
-        for N in range(1,DL):
-            date=TDDF.iloc[N,0]
-            ASDF=GetASDF(date)
-            #print(ASDF)
-            Ret=GP.GetReturns(ASDF)
-            RL=list(Ret.DAYRET)
-            RetTable.loc[date]=RL
-            print(date)
-            if TDDF.iloc[N,1]==1:
-                 GP=self.SFtoGroup(date)                 
-            #if N==2:
-                #break
-        #return ASDF
-                        
+        if self.BTFreq=='D':
+            for N in range(1,DL):
+                date=TDDF.iloc[N,0]
+                ASDF=GetASDF(date)
+                #print(ASDF)
+                Ret=GP.GetReturns(ASDF)
+                RL=list(Ret.DAYRET)
+                RetTable.loc[date]=RL
+                print(date)
+                if TDDF.iloc[N,1]==1:
+                    GP=self.SFtoGroup(date)
+        elif self.BTFreq=='W':
+             for N in range(1,DL):
+                if TDDF.iloc[N,1]==1:
+                    date=TDDF.iloc[N,0]
+                    ASDF=GetASDF(date)
+                    #print(ASDF)
+                    Ret=GP.GetReturns(ASDF)
+                    RL=list(Ret.DAYRET)
+                    RetTable.loc[date]=RL
+                    print(date)
+                    GP=self.SFtoGroup(date)                        
         #print(RetTable)
         return RetTable
 starttime = datetime.now() 
 print(starttime)
-"""读取本地日读数据作为回测"""
-
+"""读取本地数据作为回测"""
+global AllDR
+#AllDR=LoadData('DayReturn200701-201803.csv')
                
 #参数设置
 
 #设定回测起止日期
 BegT=datetime(2007,1,1)
-EndT=datetime(2017,12,31)
+EndT=datetime(2018,3,31)
 
 
 #设定股票选取范围(ALL,300,500,800)
 StockRange='ALL'
 
-#设定分组数量
+
+"""设定行业中性及权重(False,True)"""
+IndNeutral=True
+
+"""设定分组数量"""
 GroupNum=10
 
-#设定调仓频率(D,W,M)
+"""设定调仓频率('D','W','M')"""
 TradeFreq='W'
 
-#创建主程序
-BT=SFBacktest(BegT,EndT,GN=GroupNum)
+"""设置回测频率（'D','W')"""
+BTFreq='D'
 
-A=BT.backtest()
+
+#创建主程序
+BT=SFBacktest(BegT,EndT,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,IndNeu=IndNeutral)
+AAA=BT.SortNGroup(DFS,'BP')
+FDF=BT.SortNGroup(DFS,'BP')
+#A=BT.backtest()
 """
 SL1=[1,2,4,5]
 SL2=[6,7,8,9,10]
