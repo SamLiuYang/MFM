@@ -30,7 +30,8 @@ def GetTradeDates(BegT,EndT,Freq='D'):
         
         
         return TDList
-        
+
+"""得到每日收益率数据的函数"""        
 def GetDayReturn(date):    
         digitdate=DatetoDigit(date)
         dbname1='tyb_stock'
@@ -42,19 +43,24 @@ def GetDayReturn(date):
         DF=DF.rename(columns={'DAYRETURN':'RETURN'})
         #DF=DF[['TRADEDATE','STOCKID','BFQCLOSE','DAYRETURN','TRADABLE']]
         #DF=DF.loc[(DF['SWLV1']!=0)&(DF['TRADABLE']==1)]
+        print(date)
         return DF
 
+"""得到指定间隔区间收益率的函数"""
 def GetIntervalReturn(d1,d2):
  
-    DF1=GetReturnData(d1)
-    DF2=GetReturnData(d2)
+    DF1=GetDayReturn(d1)
+    DF2=GetDayReturn(d2)
     DFL=DF1[['STOCKID','HFQCLOSE']]
     DFL=DFL.rename(columns={'HFQCLOSE':'LASTCLOSE'})
     DFM=pd.merge(DF2, DFL, how='left',on='STOCKID')
     DFM['RETURN']=(DFM['HFQCLOSE']-DFM['LASTCLOSE'])*100/DFM['HFQCLOSE']
-    DFR=DFM[['TRADEDATE','STOCKID','BFQCLOSE','TRADABLE','RETURN']]
+    DFR=DFM[['TRADEDATE','STOCKID','HFQCLOSE','LASTCLOSE','TRADABLE','RETURN']]
+    print(d2)
+    
     return DFR
 
+"""得到某一日的因子数据"""
 def GetFactor(date):    
         digitdate=DatetoDigit(date)
         dbname1='tyb_stock'
@@ -77,11 +83,13 @@ EndT=datetime(2017,12,31)
 
 TDList=GetTradeDates(BegT,EndT,Freq='D')
 TDNum=len(TDList)
+
 AllData=pd.DataFrame()
 
+#Data=[GetDayReturn(TDList[i]) for i in range(0,TDNum)]  #每日收益率数据
+#Data=[GetIntervalReturn(TDList[i-1],TDList[i]) for i in range(1,TDNum)]  #每日收益率数据
 Data=[GetFactor(TDList[i]) for i in range(0,TDNum)]
     
-
 AllData=pd.concat(Data,ignore_index=True)
    
 

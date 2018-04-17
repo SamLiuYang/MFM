@@ -15,11 +15,10 @@ def DatetoDigit(date):
     digitdate=date.year*10000+date.month*100+date.day
     return digitdate
 
-"""读取回测数据"""
-
+"""批量加载回测数据的函数"""
 def LoadData(FileName):
     f = open('D:\Sam\PYTHON\\'+FileName,encoding='UTF-8')
-    reader = pd.read_csv(f, sep=',', iterator=True,parse_dates=[0,1])
+    reader = pd.read_csv(f, sep=',', iterator=True,parse_dates=[0])
     loop = True
     chunkSize = 100000
     chunks = []
@@ -31,14 +30,14 @@ def LoadData(FileName):
             loop = False
     print("Iteration is stopped.")
     DRDF = pd.concat(chunks, ignore_index=True)
-    if 'OldIndex' in DRDF.index:
-        DRDF.drop('OldIndex', axis=1, inplace=True)
+    #if 'OldIndex' in DRDF.index:
+    #    DRDF.drop('OldIndex', axis=1, inplace=True)
     DRDF['TRADEDATE']=DRDF['TRADEDATE'].apply(DatetoDigit)
     DRDF=DRDF.set_index(['TRADEDATE','STOCKID'])
     print('Done')
     return DRDF
 
-
+"""得到当期收益率数据，用于回测"""
 def GetASDF(date):
     global AllDR
     dd=DatetoDigit(date)
@@ -48,6 +47,7 @@ def GetASDF(date):
     ASni=AS[['RETURN']]
     return ASni
 
+"""得到当期因子数据，用于分组和选股"""
 def GetFactorFF(date,MainFactor):
     global AllFactor
     dd=DatetoDigit(date)
@@ -69,10 +69,10 @@ class Portfolio(object):
             Port['Weight']=ew
         self.holding=Port
         
-    def GetReturn(self,ASDF=0,fetch=0):
+    def GetReturn(self,DayRetDF,fetch=0):
         PT=self.holding.copy()
         PT=PT.set_index('STOCKID')
-        PT2=pd.concat([PT,ASDF],join='inner',axis=1)
+        PT2=pd.concat([PT,DayRetDF],join='inner',axis=1)
 
         PortDayRet=sum(PT2.Weight*PT2.RETURN)
         return PortDayRet
@@ -91,7 +91,7 @@ class GroupedPort(object):
                 GPList.append(PFList[G-1])
             self.GroupPort=GPList
     
-    def PrintHoldings(self):
+    def PrintHolding(self):
         for port in self.GroupPort:
             print(port.holding)
     
@@ -233,13 +233,13 @@ class SFBacktest(object):
 starttime = datetime.now() 
 print(starttime)
 """读取本地数据作为回测"""
-
+global AllDR
+global AllFactor   
 #AllDR=LoadData('DayReturn200701-201803.csv')
 #AllDR=LoadData('WeekReturn2007-201803.csv')
-#AllFactor=LoadData('Factor2007-2017.csv')
+#AllFactor=LoadData('Factor0701-1712.csv')
 
-global AllDR
-global AllFactor               
+            
 #参数设置
 
 #设定回测起止日期
@@ -266,7 +266,7 @@ BTFreq='D'
 
 #创建主程序
 BT=SFBacktest(BegT,EndT,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,IndNeu=IndNeutral)
-#AAA=BT.SortNGroup(DFS)
+AAA=BT.SortNGroup(DFS)
 
 A=BT.backtest()
 """
