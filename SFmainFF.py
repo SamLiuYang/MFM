@@ -19,7 +19,7 @@ def DatetoDigit(date):
 
 def LoadData(FileName):
     f = open('D:\Sam\PYTHON\\'+FileName,encoding='UTF-8')
-    reader = pd.read_csv(f, sep=',', iterator=True,parse_dates=[1])
+    reader = pd.read_csv(f, sep=',', iterator=True,parse_dates=[0,1])
     loop = True
     chunkSize = 100000
     chunks = []
@@ -31,7 +31,8 @@ def LoadData(FileName):
             loop = False
     print("Iteration is stopped.")
     DRDF = pd.concat(chunks, ignore_index=True)
-    DRDF.drop('OldIndex', axis=1, inplace=True)
+    if 'OldIndex' in DRDF.index:
+        DRDF.drop('OldIndex', axis=1, inplace=True)
     DRDF['TRADEDATE']=DRDF['TRADEDATE'].apply(DatetoDigit)
     DRDF=DRDF.set_index(['TRADEDATE','STOCKID'])
     print('Done')
@@ -46,6 +47,14 @@ def GetASDF(date):
     #ASni=AS[['DAYRETURN']]
     ASni=AS[['RETURN']]
     return ASni
+
+def GetFactorFF(date,MainFactor):
+    global AllFactor
+    dd=DatetoDigit(date)
+    DF=AllFactor.loc[dd]
+    DF=DF.rename(columns={MainFactor:'MF'})
+    DF=DF.loc[(DF['SWLV1']!=0)&(DF['TRADABLE']==1)]
+    return DF
 
 def FactorStandardize(DF):
     return DF
@@ -115,6 +124,7 @@ class SFBacktest(object):
             TDDF=TDDF.rename(columns={'IsWeekEnd':'ChangePos'})
         self.TDDF=TDDF
     
+    
     def GetFactors(self,date):
         digitdate=date.year*10000+date.month*100+date.day
         dbname1='tyb_stock'
@@ -128,8 +138,8 @@ class SFBacktest(object):
         DF=DF.loc[(DF['SWLV1']!=0)&(DF['TRADABLE']==1)]
         return DF
     
-    def SortNGroup(self,DFS,FactorName):
-        FDF=(DFS.sort_values(by=FactorName,ascending=False)).reset_index(drop=True)
+    def SortNGroup(self,DFS):
+        FDF=(DFS.sort_values(by='MF',ascending=False)).reset_index(drop=True)
         self.FDF=FDF.copy()
         length=len(FDF)
         """不分行业排序"""
@@ -148,29 +158,29 @@ class SFBacktest(object):
             return FDF
         """分行业内部排序，所有股票等权重"""
         if self.IndNeutral==True:
-            FDF['RANK'] = FDF[FactorName].groupby(FDF['SWLV1']).rank(ascending=False)
+            FDF['RANK'] = FDF['MF'].groupby(FDF['SWLV1']).rank(ascending=False)
             FDF=FDF.sort_values(by=['SWLV1','RANK'])
-            FDF['COUNT']=FDF['RANK'].groupby(FDF['SWLV1']).max() 
-            """
-            #rank=pd.Series(range(0,length))
-            #group=rank*(self.GroupNum)/length
-            DF['GROUP']=group
-            DF['GROUP']=DF['GROUP'].apply(lambda x:int(x)+1)
-            GSL=[]
-            for i in range(1,self.GroupNum+1):
-                GSL.append([]) 
-                SGDF=DFS.loc[DF['GROUP']==i]
-                SL=list(SGDF['STOCKID'])
-                GSL[i-1]=Portfolio(SL)
-            GP=GroupedPort(self.GroupNum,GSL)
-            """
-            return FDF
+            AA=FDF['RANK'].groupby(FDF['SWLV1']).max() 
+            FDF['MAXRANK']=FDF['SWLV1'].apply(lambda x: AA[x])
+            FDF['GROUP']=(FDF['RANK']-1)/FDF['MAXRANK']*(self.GroupNum)
+            FDF['GROUP']=FDF['GROUP'].apply(lambda x:int(x)+1)
+        """根据分组结果建立组合""" 
+        GSL=[]
+        for i in range(1,self.GroupNum+1):
+            GSL.append([]) 
+            SGDF=FDF.loc[FDF['GROUP']==i]
+            SL=list(SGDF.index)
+            GSL[i-1]=Portfolio(SL)
+        GP=GroupedPort(self.GroupNum,GSL)
+        return GP
+            
         
     
     def SFtoGroup(self,date):
-        DF=self.GetFactors(date)
+        DF=GetFactorFF(date,'BP')
+        #DF=self.GetFactors(date)
         DFS=FactorStandardize(DF)
-        SortedDFS=self.SortNGroup(DFS,'BP')
+        SortedDFS=self.SortNGroup(DFS)
         #print (SortedDFS)
         return SortedDFS
         
@@ -223,14 +233,18 @@ class SFBacktest(object):
 starttime = datetime.now() 
 print(starttime)
 """读取本地数据作为回测"""
-global AllDR
+
 #AllDR=LoadData('DayReturn200701-201803.csv')
-               
+#AllDR=LoadData('WeekReturn2007-201803.csv')
+#AllFactor=LoadData('Factor2007-2017.csv')
+
+global AllDR
+global AllFactor               
 #参数设置
 
 #设定回测起止日期
 BegT=datetime(2007,1,1)
-EndT=datetime(2018,3,31)
+EndT=datetime(2017,12,31)
 
 
 #设定股票选取范围(ALL,300,500,800)
@@ -252,9 +266,9 @@ BTFreq='D'
 
 #创建主程序
 BT=SFBacktest(BegT,EndT,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,IndNeu=IndNeutral)
-AAA=BT.SortNGroup(DFS,'BP')
-FDF=BT.SortNGroup(DFS,'BP')
-#A=BT.backtest()
+#AAA=BT.SortNGroup(DFS)
+
+A=BT.backtest()
 """
 SL1=[1,2,4,5]
 SL2=[6,7,8,9,10]
