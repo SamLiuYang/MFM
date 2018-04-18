@@ -235,9 +235,9 @@ print(starttime)
 """读取本地数据作为回测"""
 global AllDR
 global AllFactor   
-#AllDR=LoadData('DayReturn200701-201803.csv')
-#AllDR=LoadData('WeekReturn2007-201803.csv')
-#AllFactor=LoadData('Factor0701-1712.csv')
+#AllDR=LoadData('DayReturn0701-1803.csv')
+#AllDR=LoadData('WeekReturn0701-1803.csv')
+#AllFactor=LoadData('WeekFactor0701-1712.csv')
 
             
 #参数设置
@@ -261,12 +261,12 @@ GroupNum=10
 TradeFreq='W'
 
 """设置回测频率（'D','W')"""
-BTFreq='D'
+BTFreq='W'
 
 
 #创建主程序
 BT=SFBacktest(BegT,EndT,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,IndNeu=IndNeutral)
-AAA=BT.SortNGroup(DFS)
+#AAA=BT.SortNGroup(DFS)
 
 A=BT.backtest()
 """
