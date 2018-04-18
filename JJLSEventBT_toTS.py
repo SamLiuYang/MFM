@@ -37,7 +37,6 @@ def DatetoDigit(date):
 
 def GetLongShort(event,AS,LS,pairmode='MV'):    
     #输入解禁建仓股票信息，建仓日全市场股票信息，所有多因子股票信息，返回匹配股票
-
     S=int((event['代码'])[0:6])
     SCol=AS[AS['STOCKID']==S]
     SCol=SCol.iloc[0]
@@ -55,8 +54,8 @@ def GetLongShort(event,AS,LS,pairmode='MV'):
         LCol=LC.iloc[0]#最接近流通市值匹配
     #返回股票代码，名称
     #LSpair=[SCol,LCol]
-    LSpair=[SCol.iloc[1],SCol.iloc[2],SCol.iloc[16],
-            LCol.iloc[1],LCol.iloc[2],LCol.iloc[16]]
+    LSpair=[SCol.iloc[1],SCol.iloc[2],
+            LCol.iloc[1],LCol.iloc[2]]
     return LSpair
 
 
@@ -67,7 +66,9 @@ print('Loading ShortStocks...')
 df0=pd.read_excel(r"D:\Sam\PYTHON\10-18解禁事件已筛选.xlsx")
 EL=df0.loc[:,['代码','解禁日期','解禁比例','解禁类型']]
 
-BeginT=datetime.datetime(2018,1,1)   #输入回测起始日期
+
+"""输入回测起止日期"""
+BeginT=datetime.datetime(2018,3,1)   #输入回测起始日期
 EndT=datetime.datetime(2018,4,20)    #输入回测截止日期(起始持仓日)
 
 TDs=pd.read_csv(r"D:\Sam\PYTHON\Tradedates.csv",encoding='utf_8_sig',parse_dates=[0])
@@ -78,6 +79,7 @@ BTTDList=BTTD.tolist()
 Record=pd.DataFrame()
 C=0
 MFMHolding=pd.read_csv('MFMWen180413.csv',parse_dates=[0])
+MFMaxTD=MFMHolding['date'].max()
 for ed in BTTDList:
     #Dtd=DatetoDigit(td)
     DayEvent=BTEL[BTEL['解禁日期']==ed]
@@ -100,7 +102,8 @@ for ed in BTTDList:
             AS=sql.toDF(SQLstr1,'tyb_stock')
             ASC=sql.toDF(SQLstr3,'tyb_stock')
             #MFS=sql.toDF(SQLstr2,'tyb_wen')
-            MFS=MFMHolding[MFMHolding['date']==td].reset_index()
+            if td<=MFMaxTD:
+                MFS=MFMHolding[MFMHolding['date']==td].reset_index(drop=True)
             LS=pd.DataFrame()
             for i in MFS.index:
                 #L=int(MFS.iloc[i,1][2:])
@@ -115,35 +118,27 @@ for ed in BTTDList:
                     continue
                 SCode=StockPair[0]
                 SName=StockPair[1]
-                SOP=StockPair[2]
-                LCode=StockPair[3]
-                LName=StockPair[4]
-                LOP=StockPair[5]
+                
+                LCode=StockPair[2]
+                LName=StockPair[3]
+                """
                 SCP=ASC[ASC['STOCKID']==SCode].iloc[0,16]
                 LCP=ASC[ASC['STOCKID']==LCode].iloc[0,16]
                 Sret=(SCP/SOP-1)*100
                 Lret=(LCP/LOP-1)*100
                 Pret=(Lret-Sret)*0.5
+                """
                 #print(SCode,Sret, LCode,Lret,Pret)
-                list=[td,ed,SCode,SName,Sret,LCode,LName,Lret,Pret]
+                list=[td,ed,SCode,SName,LCode,LName]
                 PairRecord=pd.DataFrame([list],index=[N+1],
-                                        columns=['起始日','解禁日','空代码','空名称','空收益率',
-                                                 '多代码','多名称','多收益率','多-空收益'])
+                                        columns=['起始日','解禁日','空代码','空名称',
+                                                 '多代码','多名称'])
                 if SCode!=LCode:
                     Record=Record.append(PairRecord)
     print(ed)
     #C=C+1
     #print (C)
-Record.to_csv('BTEvent.csv',encoding='utf_8_sig')
+Record.to_csv('BTEvent.csv',encoding='utf_8_sig',index=False)
     
-a=Record[['解禁日','多-空收益']].groupby(['解禁日'],axis=0).mean()
-R=Record.copy()
-R['月份']=R['解禁日'].apply(lambda x: x.year*100+x.month)
-b=R[['月份','多-空收益']].groupby(['月份'],axis=0).mean()
-avgret=b.reset_index()
-c=R[['月份','多-空收益']].groupby(['月份'],axis=0).count()
-count=c.reset_index().copy()
-count.rename(columns={'多-空收益':'事件数量'}, inplace = True)
-d=pd.merge(avgret,count,on='月份')
 
         

@@ -17,3 +17,5 @@ def GetMFMWen():
     AS['code']=AS['code'].apply(lambda x: int(x[2:]))
     ASOUT=AS[['date','code']]
     return ASOUT
+
+
