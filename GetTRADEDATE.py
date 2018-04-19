@@ -11,9 +11,14 @@ import pandas as pd
 #import PerformEval as fpe
 import MYSQLPD as sql
 
-SQLstr1='select distinct TRADEDATE from stockdaily_factor1'
+SQLstr1='select distinct TRADEDATE from stockdaily_factor1 where TRADEDATE<=20000101'
 
-df2 = sql.toDF(SQLstr1,'tyb_stock')
+df0 = sql.toDF(SQLstr1,'tyb_stock')
+df1=pd.read_csv('tradedate00-18.csv',encoding='utf_8_sig',parse_dates=[0])
+df1['TRADEDATE']=df1['TRADEDATE'].apply(lambda x: x.date())
+df2=df0.append(df1)
+df2=df2.reset_index(drop=True)
+df2=df2.sort_values(by=['TRADEDATE'],ascending=True)
 #df2['Weekday']=df2.Weekday()
 df2['Weekday']=df2['TRADEDATE'].apply(lambda x: x.weekday())
 df2['IsWeekEnd']=0

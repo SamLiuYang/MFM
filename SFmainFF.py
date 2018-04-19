@@ -73,8 +73,10 @@ class Portfolio(object):
         PT=self.holding.copy()
         PT=PT.set_index('STOCKID')
         PT2=pd.concat([PT,DayRetDF],join='inner',axis=1)
-
+        
+        self.HoldAndRet=PT2
         PortDayRet=sum(PT2.Weight*PT2.RETURN)
+        return PT
         return PortDayRet
 
         
@@ -148,14 +150,7 @@ class SFBacktest(object):
             group=rank*(self.GroupNum)/length
             FDF['GROUP']=group
             FDF['GROUP']=FDF['GROUP'].apply(lambda x:int(x)+1)
-            GSL=[]
-            for i in range(1,self.GroupNum+1):
-                GSL.append([]) 
-                SGDF=FDF.loc[FDF['GROUP']==i]
-                SL=list(SGDF['STOCKID'])
-                GSL[i-1]=Portfolio(SL)
-            GP=GroupedPort(self.GroupNum,GSL)
-            return FDF
+
         """分行业内部排序，所有股票等权重"""
         if self.IndNeutral==True:
             FDF['RANK'] = FDF['MF'].groupby(FDF['SWLV1']).rank(ascending=False)
@@ -165,13 +160,16 @@ class SFBacktest(object):
             FDF['GROUP']=(FDF['RANK']-1)/FDF['MAXRANK']*(self.GroupNum)
             FDF['GROUP']=FDF['GROUP'].apply(lambda x:int(x)+1)
         """根据分组结果建立组合""" 
+        
         GSL=[]
         for i in range(1,self.GroupNum+1):
             GSL.append([]) 
             SGDF=FDF.loc[FDF['GROUP']==i]
+            print (SGDF)
             SL=list(SGDF.index)
             GSL[i-1]=Portfolio(SL)
         GP=GroupedPort(self.GroupNum,GSL)
+        
         return GP
             
         
@@ -261,14 +259,14 @@ GroupNum=10
 TradeFreq='W'
 
 """设置回测频率（'D','W')"""
-BTFreq='W'
+BTFreq='D'
 
 
 #创建主程序
 BT=SFBacktest(BegT,EndT,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,IndNeu=IndNeutral)
 #AAA=BT.SortNGroup(DFS)
 
-A=BT.backtest()
+#A=BT.backtest()
 """
 SL1=[1,2,4,5]
 SL2=[6,7,8,9,10]

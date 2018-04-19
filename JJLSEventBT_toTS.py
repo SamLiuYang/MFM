@@ -68,7 +68,7 @@ EL=df0.loc[:,['代码','解禁日期','解禁比例','解禁类型']]
 
 
 """输入回测起止日期"""
-BeginT=datetime.datetime(2018,3,1)   #输入回测起始日期
+BeginT=datetime.datetime(2018,1,1)   #输入回测起始日期
 EndT=datetime.datetime(2018,4,20)    #输入回测截止日期(起始持仓日)
 
 TDs=pd.read_csv(r"D:\Sam\PYTHON\Tradedates.csv",encoding='utf_8_sig',parse_dates=[0])
@@ -136,8 +136,8 @@ for ed in BTTDList:
                 if SCode!=LCode:
                     Record=Record.append(PairRecord)
     print(ed)
-    #C=C+1
-    #print (C)
+
+Record['解禁月份']=Record['解禁日'].apply(lambda x:(x.year*100+x.month))
 Record.to_csv('BTEvent.csv',encoding='utf_8_sig',index=False)
     
 
