@@ -10,6 +10,7 @@ import time
 
 
 class NAV_PA(object):
+    """RET模式下输入列数为1的DF，第一列为日期，第二列为当期收益率"""
     def __init__(self, input,inputmode='RET%',interval='D'):
         self.interval=interval
         length=len(input)
