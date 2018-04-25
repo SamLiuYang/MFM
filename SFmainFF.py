@@ -7,8 +7,9 @@ Created on Fri Mar 23 09:02:02 2018
 from datetime import datetime
 import numpy as np
 import pandas as pd
-import MYSQLPD as sql
+import mysqltyb as sql
 import math
+import PerformEval as pa
 
 
 def DatetoDigit(date):
@@ -109,9 +110,10 @@ class GroupedPort(object):
             
 #回测主程序        
 class SFBacktest(object):    
-    def __init__(self,BegT,EndT,SR='ALL',GN=10,TF='W',BTF='D',IndNeu=False):
+    def __init__(self,BegT,EndT,MF,SR='ALL',GN=10,TF='W',BTF='D',IndNeu=False):
         self.BegT=BegT
         self.EndT=EndT
+        self.MainFactor=MF
         self.StockRange=SR
         self.GroupNum=GN
         self.TradeFreq=TF
@@ -136,7 +138,7 @@ class SFBacktest(object):
         SQLstr1=SQLstrHead1+str(digitdate)
         #SQLstr2=SQLstrHead2+str(digitPD)
         DF=sql.toDF(SQLstr1,dbname1)
-        DF=DF[['STOCKID','TRADABLE','SWLV1','BP']].copy()
+        DF=DF[['STOCKID','TRADABLE','SWLV1',MF]].copy()
         DF=DF.loc[(DF['SWLV1']!=0)&(DF['TRADABLE']==1)]
         return DF
     
@@ -180,7 +182,7 @@ class SFBacktest(object):
                     
     
     def SFtoGroup(self,date):
-        DF=GetFactorFF(date,'BP')
+        DF=GetFactorFF(date,MainFactor)
         #DF=self.GetFactors(date)
         #DFS=FactorStandardize(DF)
         FG=self.SortNGroup(DF)
@@ -212,7 +214,16 @@ class SFBacktest(object):
 
         self.GroupNAV=NAVDF  
         return NAVDF
-        
+    
+    def Group_PA(self):
+        AllGA=pd.DataFrame()
+        for i in range(1,self.GroupNum+1):
+            GR=self.GroupReturn[[i]]
+            GBT=pe.PA(GR)
+            GAS=GBT.PFM_DD()
+            GADF=pd.DataFrame([GAS],index=[i])
+            AllGA=AllGA.append(GADF)
+        return AllGA
         
     
     
@@ -258,6 +269,7 @@ class SFBacktest(object):
         
         self.GroupReturn=RetTable
         NAVTable=self.RettoNAV()
+        self.GroupNAV=NAVTable
         #return RetTable
         return RetTable,NAVTable
 starttime = datetime.now() 
@@ -277,6 +289,8 @@ global AllFactor
 BegT=datetime(2007,1,1)
 EndT=datetime(2017,12,31)
 
+#设定回测因子
+MainFactor='MARKETVALUE'
 
 #设定股票选取范围(ALL,300,500,800)
 StockRange='ALL'
@@ -296,22 +310,12 @@ BTFreq='D'
 
 
 #创建主程序
-BT=SFBacktest(BegT,EndT,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,IndNeu=IndNeutral)
+BT=SFBacktest(BegT,EndT,MF=MainFactor,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,IndNeu=IndNeutral)
 #AAA=BT.SortNGroup(DFS)
 
 A,B=BT.backtest()
-"""
-SL1=[1,2,4,5]
-SL2=[6,7,8,9,10]
-P1=Portfolio(SL1)
-P2=Portfolio(SL2)
-G1=GroupedPort(2,[P1,P2])
-#ASDF=BT.GetFactors(datetime(2017,1,5))
-#print(ASDF)
-#AA=BT.SortNGroup(ASDF,'BP')
-ASDF=GetASDF(datetime(2017,1,6))
-#DayFactor=BT.GetFactors(datetime(2017,1,5))
-"""
+E=BT.Group_PA()
+
 stoptime = datetime.now() 
 print(stoptime)
 print(stoptime-starttime)

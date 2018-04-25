@@ -8,6 +8,7 @@ import sys
 sys.path.append("D:\Program Files\Tinysoft\Analyse.NET")#
 import TSLPy3 as tp #导入模块
 import pandas as pd
+from datetime import datetime
 
 def tsbytestostr(data):
     if (isinstance(data,(tuple)) or isinstance(data,(list))):
@@ -29,20 +30,26 @@ def tsbytestostr(data):
 def CallTSFunc(FuncName,FuncParam=[],SysParam={},outtype='list'):
 
     data=tp.RemoteCallFunc(FuncName,FuncParam,SysParam)
-    
-    #a=tp.RemoteCallFunc("OneDayStocks",[tp.EncodeDate(2010,1,4)],{})
-    a=tsbytestostr(data[1])
-    df=pd.DataFrame(a)
+    a=tsbytestostr(data[1])    
     if outtype=='list':
         return a
-    elif outtype=='DF':
-        return df
-        
+    elif outtype=='df':
+        df=pd.DataFrame(a)
+        return df      
 
 def TSDate(Y,M,D):
     d=tp.EncodeDate(Y,M,D)
     return d
 
-#date=TSDate(2010,1,4)
+starttime = datetime.now() 
 
-#a=CallTSFunc("OneDayStocks",[date],{})
+date1=TSDate(2018,4,19)
+date2=TSDate(2018,4,20)
+
+#data=tp.RemoteCallFunc("OneDayIndex",[date],{})
+a=CallTSFunc("OneDayIndex",[date1],{},outtype='list')
+print (a)
+b=CallTSFunc("OneDayIndex",[date2],{},outtype='list')
+a.extend(b)
+stoptime = datetime.now() 
+print(stoptime-starttime)

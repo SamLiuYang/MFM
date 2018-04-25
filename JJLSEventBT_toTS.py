@@ -7,7 +7,7 @@ Created on Thu Mar 29 14:21:10 2018
 import datetime
 import numpy as np
 import pandas as pd
-import MYSQLPD as sql
+import tybutil as tyb
 import warnings
 warnings.filterwarnings("ignore") 
 #定义股票类
@@ -70,7 +70,7 @@ EL=df0.loc[:,['代码','解禁日期','解禁比例','解禁类型']]
 
 """输入回测起止日期"""
 BeginT=datetime.datetime(2018,1,1)   #输入回测起始日期
-EndT=datetime.datetime(2018,4,25)    #输入回测截止日期(起始持仓日)
+EndT=datetime.datetime(2018,4,27)    #输入回测截止日期(起始持仓日)
 
 TDs=pd.read_csv(r"D:\Sam\PYTHON\Tradedates.csv",encoding='utf_8_sig',parse_dates=[0])
 BTEL=EL[(EL['解禁日期']>=BeginT)&(EL['解禁日期']<=EndT)]    #预处理回测列表
@@ -78,9 +78,11 @@ BTTD=TDs[(TDs['TRADEDATE']>=BeginT)&(TDs['TRADEDATE']<=EndT)].loc[:,'TRADEDATE']
 TDList=TDs.loc[:,'TRADEDATE'].tolist()
 BTTDList=BTTD.tolist()
 Record=pd.DataFrame()
-C=0
-MFMHolding=pd.read_csv('MFMWen180413.csv',parse_dates=[0])
+
+MFMHolding=tyb.GetMFfromWen()
+#MFMHolding=pd.read_csv('MFMWen.csv',parse_dates=[0])
 MFMaxTD=MFMHolding['date'].max()
+conn=tyb.MYSQLEngine('tyb_stock')
 for ed in BTTDList:
     #Dtd=DatetoDigit(td)
     DayEvent=BTEL[BTEL['解禁日期']==ed]
@@ -100,8 +102,8 @@ for ed in BTTDList:
             SQLstr1=SQLstrHead1+str(Dtd)
             #SQLstr2=SQLstrHead2+str(Dtd)
             SQLstr3=SQLstrHead1+str(Ded)
-            AS=sql.toDF(SQLstr1,'tyb_stock')
-            ASC=sql.toDF(SQLstr3,'tyb_stock')
+            AS=pd.read_sql(SQLstr1,conn)
+            ASC=pd.read_sql(SQLstr3,conn)
             #MFS=sql.toDF(SQLstr2,'tyb_wen')
             if td<=MFMaxTD:
                 MFS=MFMHolding[MFMHolding['date']==td].reset_index(drop=True)
