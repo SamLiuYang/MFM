@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 import mysqltyb as sql
 import math
-import PerformEval as pa
+import PerformEval as pe
 
 
 def DatetoDigit(date):
@@ -110,7 +110,7 @@ class GroupedPort(object):
             
 #回测主程序        
 class SFBacktest(object):    
-    def __init__(self,BegT,EndT,MF,SR='ALL',GN=10,TF='W',BTF='D',IndNeu=False):
+    def __init__(self,BegT,EndT,MF,SR='ALL',GN=10,TF='W',BTF='D',short_index='300',IndNeu=False):
         self.BegT=BegT
         self.EndT=EndT
         self.MainFactor=MF
@@ -119,6 +119,7 @@ class SFBacktest(object):
         self.TradeFreq=TF
         self.BTFreq=BTF
         self.IndNeutral=IndNeu
+        self.index=short_index
         #读取交易日期列表
         TDs=pd.read_csv(r"D:\Sam\PYTHON\Tradedates.csv",encoding='utf_8_sig',parse_dates=[0])
         BTTD=TDs[(TDs['TRADEDATE']>=BegT)&(TDs['TRADEDATE']<=EndT)]
@@ -198,11 +199,12 @@ class SFBacktest(object):
             if TDDF.iloc[i,1]==1:
                 break
         TDDF=TDDF.loc[i:length].reset_index(drop=True)
+        self.BTDF=TDDF[['TRADEDATE']]
         return TDDF
     
     """由分组回归结果计算净值"""
-    def RettoNAV(self):
-        RetDF=self.GroupReturn
+    def RettoNAV(self,RET):
+        RetDF=RET
         NAVDF=pd.DataFrame(
                 np.ones((self.DL,self.GroupNum)),
                 index=RetDF.index,
@@ -211,14 +213,12 @@ class SFBacktest(object):
         for i in range(1,self.DL):
             #print (i)
             NAVDF.iloc[i]=NAVDF.iloc[(i-1)]*(1+0.01*RetDF.iloc[i])            
-
-        self.GroupNAV=NAVDF  
         return NAVDF
     
-    def Group_PA(self):
+    def Group_PA(self,GR_input):
         AllGA=pd.DataFrame()
         for i in range(1,self.GroupNum+1):
-            GR=self.GroupReturn[[i]]
+            GR=GR_input[[i]]
             GBT=pe.PA(GR)
             GAS=GBT.PFM_DD()
             GADF=pd.DataFrame([GAS],index=[i])
@@ -268,20 +268,46 @@ class SFBacktest(object):
                     GP=self.SFtoGroup(date)                        
         
         self.GroupReturn=RetTable
-        NAVTable=self.RettoNAV()
+        NAVTable=self.RettoNAV(RetTable)
         self.GroupNAV=NAVTable
-        #return RetTable
-        return RetTable,NAVTable
+        ev=self.Group_PA(RetTable)
+        return (RetTable,NAVTable,ev)
+    
+    def short_index(self):
+        """需在执行backtest()后才生效"""
+        indexid={
+                '000001':1000001,
+                '50':1000050,
+                '300':1000300,
+                '500':1000500,
+                }.get(self.index,'error')
+        print(indexid)
+        if indexid=='error':
+            raise('short index input error')
+        index_ret=IndexDR[IndexDR['INDEXID']==indexid][['TRADEDATE','DAYRETURN']]
+        index_ret['TRADEDATE']=index_ret['TRADEDATE'].apply(DatetoDigit)
+        index_ret=index_ret.set_index(['TRADEDATE'])        
+        BT_index=self.BTDF        
+        BT_index['INDEXRET']=BT_index['TRADEDATE'].apply(lambda x: index_ret.loc[DatetoDigit(x)])
+        BT_index=BT_index.set_index(['TRADEDATE'])
+        BT_index.iloc[0,0]=0
+        index_ret_series=BT_index['INDEXRET']
+        excess_ret=self.GroupReturn.sub(index_ret_series,axis=0)
+        excess_nav=self.RettoNAV(excess_ret)
+        ev=self.Group_PA(excess_ret)
+        return (excess_ret,excess_nav,ev)
+        
+        
 starttime = datetime.now() 
 print(starttime)
 """读取本地数据作为回测"""
 global AllDR
 global AllFactor   
-
+global IndexDR
 #AllDR=LoadData('DayReturn0701-1803.csv')
 #AllDR=LoadData('WeekReturn0701-1803.csv')
 #AllFactor=LoadData('WeekFactor0701-1712.csv')
-
+IndexDR=pd.read_csv('IndexDaily.csv',parse_dates=[0])
             
 #参数设置
 
@@ -292,9 +318,10 @@ EndT=datetime(2017,12,31)
 #设定回测因子
 MainFactor='MARKETVALUE'
 
+"""
 #设定股票选取范围(ALL,300,500,800)
 StockRange='ALL'
-
+"""
 
 """设定行业中性及权重(False,True)"""
 IndNeutral=True
@@ -308,13 +335,18 @@ TradeFreq='W'
 """设置回测频率（'D','W')"""
 BTFreq='D'
 
+"""设置对冲指数（'50','300','500','000001')"""
+shortindex='500'
+
 
 #创建主程序
-BT=SFBacktest(BegT,EndT,MF=MainFactor,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,IndNeu=IndNeutral)
+BT=SFBacktest(BegT,EndT,MF=MainFactor,GN=GroupNum,TF=TradeFreq,BTF=BTFreq,
+              short_index=shortindex,IndNeu=IndNeutral)
 #AAA=BT.SortNGroup(DFS)
 
-A,B=BT.backtest()
-E=BT.Group_PA()
+A=BT.backtest()
+#E=BT.Group_PA()
+E=BT.short_index()
 
 stoptime = datetime.now() 
 print(stoptime)

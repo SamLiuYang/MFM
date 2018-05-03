@@ -47,7 +47,7 @@ class PA(object):
         if __name__ == "__main__":
             print ("Calculating DD:")
         Temp=self.NAV.copy().reset_index()
-        Temp=Temp.rename(columns={"index": "DATE"})
+        Temp.columns=['DATE','NAV']
         Temp['NAVMAX']=Temp['NAV'].cummax()
         Temp['DD']=(Temp['NAV']/Temp['NAVMAX']-1)*100
         Temp['MAXDD']=Temp['DD'].cummin()
@@ -63,6 +63,7 @@ class PA(object):
         
         MaxDD=Temp['MAXDD'].iloc[-1]
         MDOI=Temp[Temp['MAXDD']==MaxDD].index[0]
+        #print(Temp)                                             #测试
         MDOccur=Temp.loc[MDOI,'DATE']
         MDBI=MDOI-Temp.loc[MDOI,'ContDD']
         MDBegin=Temp.loc[MDBI,'DATE']
